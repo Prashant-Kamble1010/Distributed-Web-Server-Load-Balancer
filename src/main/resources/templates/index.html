@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Distributed Web Server Load Balancer - DCS Mini-Project</title>
+
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" th:href="@{/css/style.css}" href="/css/style.css">
+</head>
+<body>
+
+<!-- Header Section -->
+<header class="app-header">
+    <div class="container-fluid px-4">
+        <div class="d-flex flex-wrap justify-content-between align-items-center">
+            <div>
+                <h1 class="h3 mb-0 fw-bold text-white">
+                    <i class="bi bi-hdd-network-fill me-2 text-info"></i>Distributed Web Server Load Balancer
+                </h1>
+                <p class="mb-0 text-white-50 small">
+                    Distributed Computing Systems Mini-Project &bull; Final Year B.Tech Information Technology
+                </p>
+            </div>
+            <div class="d-flex align-items-center gap-3 mt-2 mt-md-0">
+                <div class="text-end d-none d-sm-block">
+                    <div class="small text-white-50">Cluster Health</div>
+                    <span id="system-health-badge" class="badge system-badge-healthy px-3 py-2">
+                        <i class="bi bi-shield-check me-1"></i>HEALTHY (All Online)
+                    </span>
+                </div>
+
+                <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#resetModal">
+                    <i class="bi bi-arrow-counterclockwise me-1"></i>Reset Simulation
+                </button>
+            </div>
+        </div>
+    </div>
+</header>
+
+<main class="container-fluid px-4 py-4">
+
+    <!-- Educational Context Banner -->
+    <div class="academic-banner d-flex align-items-center justify-content-between">
+        <div>
+            <i class="bi bi-info-circle-fill text-primary me-2"></i>
+            <strong>Educational Distributed Simulation:</strong> Demonstrating Round-Robin scheduling, health probing, fault isolation, and graceful degradation across simulated server nodes (Server A, Server B, Server C).
+        </div>
+        <div class="small text-secondary d-none d-lg-block">
+            <strong>Next in Rotation:</strong> <span id="current-rotation-pointer" class="badge bg-primary ms-1">Start (Server A)</span>
+        </div>
+    </div>
+
+    <!-- Summary Metrics Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-4 col-xl">
+            <div class="p-3 summary-card">
+                <div class="text-muted small text-uppercase fw-semibold mb-1">Total Requests</div>
+                <div class="metric-value" id="stat-total-req">0</div>
+                <div class="text-secondary small"><i class="bi bi-activity text-primary me-1"></i>All incoming requests</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-4 col-xl">
+            <div class="p-3 summary-card">
+                <div class="text-muted small text-uppercase fw-semibold mb-1">Successful Requests</div>
+                <div class="metric-value text-success" id="stat-success-req">0</div>
+                <div class="text-success small"><i class="bi bi-check-circle-fill me-1"></i>HTTP 200 OK</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-4 col-xl">
+            <div class="p-3 summary-card">
+                <div class="text-muted small text-uppercase fw-semibold mb-1">Failed Requests</div>
+                <div class="metric-value text-danger" id="stat-failed-req">0</div>
+                <div class="text-danger small"><i class="bi bi-x-circle-fill me-1"></i>HTTP 503 (All Offline)</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-4 col-xl">
+            <div class="p-3 summary-card">
+                <div class="text-muted small text-uppercase fw-semibold mb-1">Online Servers</div>
+                <div class="metric-value text-success" id="stat-online-servers">3</div>
+                <div class="text-secondary small"><i class="bi bi-server text-success me-1"></i>Active backend nodes</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-4 col-xl">
+            <div class="p-3 summary-card">
+                <div class="text-muted small text-uppercase fw-semibold mb-1">Offline Servers</div>
+                <div class="metric-value text-secondary" id="stat-offline-servers">0</div>
+                <div class="text-secondary small"><i class="bi bi-slash-circle text-danger me-1"></i>Isolated nodes</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Backend Server Monitoring Cards (Server A, Server B, Server C) -->
+    <h2 class="h5 fw-bold mb-3 text-secondary">
+        <i class="bi bi-hdd-stack-fill text-primary me-2"></i>Backend Server Monitoring
+    </h2>
+    <div class="row g-4 mb-4">
+
+        <!-- Server A -->
+        <div class="col-12 col-md-4">
+            <div id="server-a-card" class="card server-card server-online h-100">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div class="d-flex align-items-center">
+                            <div class="server-icon-badge bg-primary-subtle text-primary me-3">
+                                <i class="bi bi-server"></i>
+                            </div>
+                            <div>
+                                <h5 class="card-title fw-bold mb-0">Server A</h5>
+                                <span class="badge bg-light text-secondary border font-monospace small">ID: server-a &bull; 127.0.0.1:8081</span>
+                            </div>
+                        </div>
+                        <span id="server-a-status-badge" class="badge bg-success">
+                            <span class="status-indicator-dot dot-online"></span>ONLINE
+                        </span>
+                    </div>
+
+                    <div class="bg-light p-3 rounded mb-3">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span class="text-muted small">Requests Handled:</span>
+                            <span id="server-a-count" class="fw-bold fs-5 text-dark">0</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="text-muted small">Load Share:</span>
+                            <span id="server-a-pct" class="fw-bold text-primary">0%</span>
+                        </div>
+                        <div class="progress" style="height: 8px;">
+                            <div id="server-a-progress" class="progress-bar bg-primary" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button id="server-a-btn-offline" class="btn btn-outline-danger btn-sm flex-fill" onclick="toggleServer('server-a', 'offline')">
+                            <i class="bi bi-power me-1"></i>Take Offline
+                        </button>
+                        <button id="server-a-btn-online" class="btn btn-outline-success btn-sm flex-fill" onclick="toggleServer('server-a', 'online')" disabled>
+                            <i class="bi bi-check-circle me-1"></i>Bring Online
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Server B -->
+        <div class="col-12 col-md-4">
+            <div id="server-b-card" class="card server-card server-online h-100">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div class="d-flex align-items-center">
+                            <div class="server-icon-badge bg-success-subtle text-success me-3">
+                                <i class="bi bi-server"></i>
+                            </div>
+                            <div>
+                                <h5 class="card-title fw-bold mb-0">Server B</h5>
+                                <span class="badge bg-light text-secondary border font-monospace small">ID: server-b &bull; 127.0.0.1:8082</span>
+                            </div>
+                        </div>
+                        <span id="server-b-status-badge" class="badge bg-success">
+                            <span class="status-indicator-dot dot-online"></span>ONLINE
+                        </span>
+                    </div>
+
+                    <div class="bg-light p-3 rounded mb-3">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span class="text-muted small">Requests Handled:</span>
+                            <span id="server-b-count" class="fw-bold fs-5 text-dark">0</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="text-muted small">Load Share:</span>
+                            <span id="server-b-pct" class="fw-bold text-success">0%</span>
+                        </div>
+                        <div class="progress" style="height: 8px;">
+                            <div id="server-b-progress" class="progress-bar bg-success" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button id="server-b-btn-offline" class="btn btn-outline-danger btn-sm flex-fill" onclick="toggleServer('server-b', 'offline')">
+                            <i class="bi bi-power me-1"></i>Take Offline
+                        </button>
+                        <button id="server-b-btn-online" class="btn btn-outline-success btn-sm flex-fill" onclick="toggleServer('server-b', 'online')" disabled>
+                            <i class="bi bi-check-circle me-1"></i>Bring Online
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Server C -->
+        <div class="col-12 col-md-4">
+            <div id="server-c-card" class="card server-card server-online h-100">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div class="d-flex align-items-center">
+                            <div class="server-icon-badge bg-info-subtle text-info me-3">
+                                <i class="bi bi-server"></i>
+                            </div>
+                            <div>
+                                <h5 class="card-title fw-bold mb-0">Server C</h5>
+                                <span class="badge bg-light text-secondary border font-monospace small">ID: server-c &bull; 127.0.0.1:8083</span>
+                            </div>
+                        </div>
+                        <span id="server-c-status-badge" class="badge bg-success">
+                            <span class="status-indicator-dot dot-online"></span>ONLINE
+                        </span>
+                    </div>
+
+                    <div class="bg-light p-3 rounded mb-3">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span class="text-muted small">Requests Handled:</span>
+                            <span id="server-c-count" class="fw-bold fs-5 text-dark">0</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="text-muted small">Load Share:</span>
+                            <span id="server-c-pct" class="fw-bold text-info">0%</span>
+                        </div>
+                        <div class="progress" style="height: 8px;">
+                            <div id="server-c-progress" class="progress-bar bg-info" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button id="server-c-btn-offline" class="btn btn-outline-danger btn-sm flex-fill" onclick="toggleServer('server-c', 'offline')">
+                            <i class="bi bi-power me-1"></i>Take Offline
+                        </button>
+                        <button id="server-c-btn-online" class="btn btn-outline-success btn-sm flex-fill" onclick="toggleServer('server-c', 'online')" disabled>
+                            <i class="bi bi-check-circle me-1"></i>Bring Online
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Simulator & Chart Row -->
+    <div class="row g-4 mb-4">
+
+        <!-- Request Simulator Panel -->
+        <div class="col-12 col-lg-6">
+            <div class="card simulator-card h-100">
+                <div class="card-header bg-white border-bottom py-3">
+                    <h5 class="card-title fw-bold mb-0 text-dark">
+                        <i class="bi bi-play-circle-fill text-primary me-2"></i>Request Simulator
+                    </h5>
+                    <div class="text-muted small">Dispatches HTTP requests directly to the Round-Robin Load Balancer</div>
+                </div>
+                <div class="card-body p-4">
+                    <div class="mb-3">
+                        <button id="btn-send-single" class="btn btn-primary w-100 py-2 fw-semibold shadow-sm">
+                            <i class="bi bi-send-fill me-1"></i>Send Request
+                        </button>
+                    </div>
+
+                    <div class="p-3 bg-light rounded-3 border mb-3">
+                        <label class="form-label fw-semibold small text-muted text-uppercase mb-2">Batch Requests Generator</label>
+                        <div class="input-group mb-2">
+                            <span class="input-group-text bg-white"><i class="bi bi-layers"></i></span>
+                            <input id="batch-count-input" type="number" class="form-control" value="6" min="1" max="100">
+                            <button id="btn-send-batch" class="btn btn-dark fw-semibold" type="button">
+                                <i class="bi bi-layers-fill me-1"></i>Send Multiple Requests
+                            </button>
+                        </div>
+                        <div class="d-flex gap-2 align-items-center">
+                            <span class="small text-muted">Quick presets:</span>
+                            <span class="badge bg-white text-dark border quick-chip" onclick="setBatchSize(3)">3 req</span>
+                            <span class="badge bg-white text-dark border quick-chip" onclick="setBatchSize(6)">6 req</span>
+                            <span class="badge bg-white text-dark border quick-chip" onclick="setBatchSize(12)">12 req</span>
+                            <span class="badge bg-white text-dark border quick-chip" onclick="setBatchSize(24)">24 req</span>
+                        </div>
+                    </div>
+
+                    <!-- Live Request Feedback Box -->
+                    <label class="form-label fw-semibold small text-muted text-uppercase mb-1">Live Load Balancer Response</label>
+                    <div id="result-display-panel" class="result-display-box">
+                        <span class="text-muted">
+                            <i class="bi bi-info-circle me-1"></i>Ready. Click <strong>Send Request</strong> or <strong>Send Multiple Requests</strong> to simulate traffic.
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Load Distribution Chart -->
+        <div class="col-12 col-lg-6">
+            <div class="card simulator-card h-100">
+                <div class="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="card-title fw-bold mb-0 text-dark">
+                            <i class="bi bi-bar-chart-fill text-primary me-2"></i>Load Distribution Visualization
+                        </h5>
+                        <div class="text-muted small">Real-time distribution of requests across backend nodes</div>
+                    </div>
+                    <span class="badge bg-light text-secondary border">Algorithm: Round-Robin</span>
+                </div>
+                <div class="card-body p-4 d-flex flex-column justify-content-center">
+                    <div style="position: relative; height: 230px; width: 100%;">
+                        <canvas id="loadChart"></canvas>
+                    </div>
+                    <div class="mt-3 text-center small text-muted">
+                        <span class="badge bg-primary-subtle text-primary me-2"><i class="bi bi-square-fill me-1"></i>Server A</span>
+                        <span class="badge bg-success-subtle text-success me-2"><i class="bi bi-square-fill me-1"></i>Server B</span>
+                        <span class="badge bg-info-subtle text-info"><i class="bi bi-square-fill me-1"></i>Server C</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Request History Table -->
+    <div class="card simulator-card">
+        <div class="card-header bg-white border-bottom py-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <div>
+                <h5 class="card-title fw-bold mb-0 text-dark">
+                    <i class="bi bi-clock-history text-primary me-2"></i>Request History Audit Log
+                </h5>
+                <div class="text-muted small">Sequential routing history, HTTP responses and cluster snapshot</div>
+            </div>
+            <div>
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#clearHistoryModal">
+                    <i class="bi bi-trash3 me-1"></i>Clear History
+                </button>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive history-table-container">
+                <table class="table table-hover align-middle mb-0 history-table">
+                    <thead>
+                        <tr>
+                            <th scope="col" style="width: 120px;">Request ID</th>
+                            <th scope="col" style="width: 120px;">Timestamp</th>
+                            <th scope="col" style="width: 140px;">Target Server</th>
+                            <th scope="col" style="width: 160px;">Result</th>
+                            <th scope="col" style="width: 250px;">Cluster Snapshot</th>
+                            <th scope="col">Diagnostics & Latency</th>
+                        </tr>
+                    </thead>
+                    <tbody id="history-table-body">
+                        <tr>
+                            <td colspan="6" class="text-center text-muted py-4">
+                                Loading request history...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+</main>
+
+<!-- Footer -->
+<footer>
+    <div class="container-fluid px-4 text-center">
+        <p class="mb-1 text-white-50">
+            <strong>Distributed Computing Systems (DCS) Mini-Project</strong> &bull; Final Year B.Tech Information Technology
+        </p>
+        <p class="mb-0 small text-secondary">
+            Simulated in-memory architecture demonstrating Round-Robin scheduling, Health Monitoring & Fault Tolerance.
+        </p>
+    </div>
+</footer>
+
+<!-- Reset Simulation Modal -->
+<div class="modal fade" id="resetModal" tabindex="-1" aria-labelledby="resetModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="resetModalLabel"><i class="bi bi-exclamation-triangle-fill me-2"></i>Confirm Simulation Reset</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to reset the simulation?</p>
+                <ul class="text-secondary small mb-0">
+                    <li>All three backend servers (A, B, C) will be restored to <strong>ONLINE</strong> status.</li>
+                    <li>All request counters will be reset to <strong>0</strong>.</li>
+                    <li>Round-Robin rotation pointer will be reset to the beginning.</li>
+                    <li>The request audit history log will be cleared.</li>
+                </ul>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" id="btn-confirm-reset" class="btn btn-danger">Yes, Reset All</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Clear History Modal -->
+<div class="modal fade" id="clearHistoryModal" tabindex="-1" aria-labelledby="clearHistoryModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="clearHistoryModalLabel"><i class="bi bi-trash3 me-2 text-danger"></i>Clear Request History</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to clear the audit history table? Cumulative statistics and server counters will remain intact.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" id="btn-confirm-clear-history" class="btn btn-danger">Clear History</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Viva & Concepts Modal -->
+<div class="modal fade" id="vivaModal" tabindex="-1" aria-labelledby="vivaModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title" id="vivaModalLabel"><i class="bi bi-mortarboard-fill me-2 text-info"></i>DCS Mini-Project: Concepts & Viva Quick Reference</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <h6 class="fw-bold text-primary">1. What is Round-Robin Load Balancing?</h6>
+                <p class="small text-secondary">
+                    Round-Robin is a deterministic scheduling algorithm that assigns incoming client requests to available servers in cyclic sequential order (A &rarr; B &rarr; C &rarr; A ...).
+                </p>
+
+                <h6 class="fw-bold text-primary">2. How is Fault Tolerance handled?</h6>
+                <p class="small text-secondary">
+                    When a node is offline (simulated failure), the load balancer automatically skips it during the rotation cycle and passes the request to the next healthy node. If all servers fail, the load balancer gracefully returns HTTP 503 (Service Unavailable).
+                </p>
+
+                <h6 class="fw-bold text-primary">3. How is Thread Safety guaranteed?</h6>
+                <p class="small text-secondary">
+                    The scheduling pointer and server counter increments are protected by synchronized blocks and atomic primitives (AtomicLong), preventing race conditions under concurrent client requests.
+                </p>
+
+                <h6 class="fw-bold text-primary">4. Simulated vs Production Distributed Systems:</h6>
+                <p class="small text-secondary">
+                    In production, a load balancer (such as NGINX or HAProxy) sits on a dedicated reverse-proxy host forwarding TCP/HTTP traffic to separate virtual machines or containers. In this educational project, backend nodes are simulated thread-safe objects within a single Spring Boot container to avoid external infrastructure dependencies.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bootstrap 5 JS Bundle -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<!-- Custom Dashboard Controller JS -->
+<script th:src="@{/js/dashboard.js}" src="/js/dashboard.js"></script>
+
+</body>
+</html>
